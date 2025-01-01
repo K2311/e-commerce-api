@@ -39,13 +39,20 @@ const registerSchema = Joi.object({
             'string.max': 'Password cannot exceed 50 characters.',
             'string.pattern.base': 'Password must include at least one uppercase letter, one lowercase letter, one number, and one special character.',
         }),
+    role: Joi.string()
+        .valid('Admin', 'Vendor', 'Customer')
+        .required()
+        .messages({
+            'string.empty': 'Role is required.',
+            'any.only': 'Role must be one of Admin, Vendor, or Customer.',
+        }),
 });
 router.post('/register', async (req, res) => {
     try {
-        const { username, email, password } = req.body;
+        const { username, email, password, role } = req.body;
 
 
-        const { error } =  registerSchema.validate({username, email, password  });
+        const { error } =  registerSchema.validate({username, email, password , role });
         if(error){
             return res.status(400).json({error:error.details[0].message});
         }
@@ -65,6 +72,7 @@ router.post('/register', async (req, res) => {
             username,
             email,
             password: hashedPassword,
+            role
         });
 
         const savedUser = await newUser.save();
@@ -120,7 +128,7 @@ router.post('/login', async(req,res)=>{
         }
 
         const token = jwt.sign(
-            { id: user._id, username: user.username },
+            { id: user._id, username: user.username,role: user.role },
             JWT_SECRET,
             { expiresIn: '1h' } 
         );
@@ -132,6 +140,7 @@ router.post('/login', async(req,res)=>{
                 id: user._id,
                 username: user.username,
                 email: user.email,
+                role: user.role,
             },
         });
     } catch (error) {
