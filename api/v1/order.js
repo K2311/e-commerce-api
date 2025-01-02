@@ -79,5 +79,55 @@ router.post('/',authorize(['Customer']), async (req,res)=>{
         res.status(500).json({ message: 'Server error.', error: error.message });
     }
 });
+router.get('/',authorize(['Customer']),async(req,res)=>{
+    try {
+        const customerId = req.user.id;
+        const orders = await Order.find({ customerId }).populate('items.productId', 'name price');
 
+        if (!orders || orders.length === 0) {
+            return res.status(404).json({ message: 'No orders found for this customer.' });
+        }
+        res.status(200).json({ message: 'Orders retrieved successfully.', orders });
+
+    } catch (error) {
+        console.error('Error fetching orders:', error);
+        res.status(500).json({ message: 'Server error.', error: error.message });
+    }
+});
+
+
+const updateOrderStatusSchema = Joi.object({
+    status: Joi.string()
+        .valid('Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled')
+        .required()
+        .messages({
+            'string.base': 'Status must be a string.',
+            'any.required': 'Status is required.',
+            'any.only': 'Invalid status. Status must be one of Pending, Processing, Shipped, Delivered, Cancelled.',
+        }),
+});
+router.put('/:orderId',authorize(['Admin']),async(req,res)=>{
+    try {
+
+        const { error } = updateOrderStatusSchema.validate(req.body);
+        if (error) {
+            return res.status(400).json({ message: error.details[0].message });
+        }
+        const orderId = req.params.orderId;
+        const { status } = req.body;
+
+        const order = await Order.findById(orderId);
+
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found.' });
+        }
+        order.status = status;
+        await order.save();
+
+        res.status(200).json({ message: 'Order status updated successfully.', order });
+    } catch (error) {
+        console.error('Error updating order status:', error);
+        res.status(500).json({ message: 'Server error.', error: error.message });
+    }
+});
 module.exports = router;
